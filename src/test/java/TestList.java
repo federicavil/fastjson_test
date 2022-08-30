@@ -14,24 +14,35 @@ import java.util.List;
 public class TestList {
 
     private List values;
-    private String type;
+    private String expected;
     private SerializerFeature feature;
 
     @Parameterized.Parameters
     public static Collection<Object[]> getTestParameters(){
         return Arrays.asList(new Object[][]{
-                {new LinkedList<>(Arrays.asList(23L,45L)), SerializerFeature.WriteClassName, "L"} //values, feature, type
+                {new LinkedList<>(Arrays.asList(23L,45L)), SerializerFeature.WriteClassName, ElementType.LONG} //values, feature, element list type
         });
     }
 
-    private void configure(List values, SerializerFeature feature, String type){
+    private void configure(List values, SerializerFeature feature, ElementType type){
         this.values = values;
         this.feature = feature;
-        this.type = type;
+        switch(type){
+            case LONG:
+                this.expected = "[";
+                for(int i = 0; i < this.values.size(); i++){
+                    String value = this.values.get(i).toString();
+                    if(i < this.values.size() -1)
+                        this.expected = this.expected + value + "L,";
+                    else
+                        this.expected = this.expected + value +"L]";
+                }
+                break;
+        }
 
     }
 
-    public TestList(List values, SerializerFeature feature, String type){
+    public TestList(List values, SerializerFeature feature, ElementType type){
         this.configure(values,feature, type);
     }
 
@@ -39,16 +50,11 @@ public class TestList {
     public void test_null(){
         String json = JSON.toJSONString(this.values,this.feature);
 
-        String expected = "[";
-        for(int i = 0; i < this.values.size(); i++){
-            String value = this.values.get(i).toString();
-            if(i < this.values.size() -1)
-                expected = expected + value + this.type+",";
-            else
-                expected = expected + value + this.type+"]";
-        }
-
         Assert.assertEquals(expected, json);
+    }
+
+    public enum ElementType{
+        LONG
     }
 
     /*

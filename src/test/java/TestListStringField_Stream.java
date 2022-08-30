@@ -7,258 +7,126 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.json.JSONObject;
 import org.json.JSONArray;
-import org.junit.runners.Suite;
 
 import java.io.StringReader;
 import java.util.*;
 
-@RunWith(Suite.class)
-@Suite.SuiteClasses({ TestListStringField_Stream.TestList.class, TestListStringField_Stream.TestNull.class,
-                      TestListStringField_Stream.TestEmpty.class, TestListStringField_Stream.TestMapEmpty.class,
-                      TestListStringField_Stream.TestNotMatch.class, TestListStringField_Stream.TestError.class,
-                      TestListStringField_Stream.TestMapError.class})
+@RunWith(Parameterized.class)
 public class TestListStringField_Stream {
 
-    @RunWith(value = Parameterized.class)
-    public static class TestList{
-
         private String value;
+        private TypeReference typeReference;
+        private ClassType type;
+        private JSONReader reader;
+        private List<Object> expected;
+        private boolean isExceptionExpected;
 
-        public TestList(String value){
-            this.configure(value);
+        public TestListStringField_Stream(String value, ClassType type, boolean isExceptionExpected){
+            this.configure(value,type,isExceptionExpected);
         }
 
-        private void configure(String value){
+        private void configure(String value, ClassType type, boolean isExceptionExpected){
             this.value = value;
-        }
-
-        @Parameterized.Parameters
-        public static Collection<Object> getTestParameters(){
-            return Arrays.asList(new Object[][]{
-                    {"{\"values\":[\"a\",null,\"b\",\"ab\\\\c\\\"\"]}"}, //value
-            });
-        }
-
-        @Test
-        public void test_list(){
-            JSONReader reader = new JSONReader(new StringReader(this.value));
-            Model model = reader.readObject(Model.class);
-
-            List<Object> expected = new Oracle(this.value).parsingValues();
-            Assert.assertEquals(expected.size(),model.getValues().size());
-            for(int i = 0; i < expected.size(); i++){
-                Assert.assertEquals(expected.get(i),model.getValues().get(i));
+            this.reader = new JSONReader(new StringReader(this.value));
+            this.isExceptionExpected = isExceptionExpected;
+            this.type = type;
+            if(type == ClassType.Model){
+                this.typeReference = new TypeReference<Model>(){};
+                if(!isExceptionExpected)
+                    this.expected = Oracle.parsingValues(this.value);
             }
-        }
-    }
+            else{
+                this.typeReference = new TypeReference<Map<String, Model>>() {};
+                if(!isExceptionExpected)
+                    this.expected = Oracle.parsingMapValues(this.value);
+            }
 
-    @RunWith(value = Parameterized.class)
-    public static class TestNull{
-
-        private String value;
-
-        public TestNull(String value){
-            this.configure(value);
-        }
-
-        private void configure(String value){
-            this.value = value;
         }
 
         @Parameterized.Parameters
         public static Collection<Object> getTestParameters(){
             return Arrays.asList(new Object[][]{
-                    {"{\"values\":null}"}, //value
+                    //value, typeReference, isExceptionExpected
+                    {"{\"values\":[1",                      ClassType.Model,     true},
+                    {"{\"values\":[\"b\"[",                 ClassType.Model,     true},
+                    {"{\"values\":[n",                      ClassType.Model,     true},
+                    {"{\"values\":[nu",                     ClassType.Model,     true},
+                    {"{\"values\":[nul",                    ClassType.Model,     true},
+                    {"{\"values\":[null",                   ClassType.Model,     true},
+                    {"{\"values\":[null,]",                 ClassType.Model,     true},
+                    {"{\"model\":{\"values\":[][",          ClassType.Map,       true},
+                    {"{\"model\":{\"values\":[]}[",         ClassType.Map,       true},
+                    {"{\"model\":{\"values\":[\"aaa]}[",    ClassType.Map,       true},
+                    {"{\"model\":{\"values\":[]}}",         ClassType.Map,       false},
+                    {"{\"values\":null}",                   ClassType.Model,     false},
+                    {"{\"value\":[]}",                      ClassType.Model,     false},
+                    {"{\"values\":[]}",                     ClassType.Model,     false},
+                    {"{\"values\":[\"a\",null,\"b\",\"ab\\\\c\\\"\"]}", ClassType.Model, false},
             });
         }
 
         @Test
-        public void test_null(){
-            JSONReader reader = new JSONReader(new StringReader(this.value));
-            Model model = reader.readObject(Model.class);
-            Assert.assertNull(model.getValues());
-        }
-    }
-
-    @RunWith(value = Parameterized.class)
-    public static class TestEmpty{
-
-        private String value;
-
-        public TestEmpty(String value){
-            this.configure(value);
-        }
-
-        private void configure(String value){
-            this.value = value;
-        }
-
-        @Parameterized.Parameters
-        public static Collection<Object> getTestParameters(){
-            return Arrays.asList(new Object[][]{
-                    {"{\"values\":[]}"}, //value
-            });
-        }
-
-        @Test
-        public void test_empty(){
-            JSONReader reader = new JSONReader(new StringReader(this.value));
-            Model model = reader.readObject(Model.class);
-            Assert.assertEquals(0, model.values.size());
-        }
-    }
-
-    @RunWith(value = Parameterized.class)
-    public static class TestMapEmpty{
-
-        private String value;
-
-        public TestMapEmpty(String value){
-            this.configure(value);
-        }
-
-        private void configure(String value){
-            this.value = value;
-        }
-
-        @Parameterized.Parameters
-        public static Collection<Object> getTestParameters(){
-            return Arrays.asList(new Object[][]{
-                    {"{\"model\":{\"values\":[]}}"}, //value
-            });
-        }
-
-        @Test
-        public void test_map_empty(){
-            JSONReader reader = new JSONReader(new StringReader(this.value));
-            Map<String, Model> map = reader.readObject(new TypeReference<>() {
-            });
-            Model model = map.get("model");
-            Assert.assertEquals(0, model.values.size());
-        }
-    }
-
-    @RunWith(value = Parameterized.class)
-    public static class TestNotMatch{
-
-        private String value;
-
-        public TestNotMatch(String value){
-            this.configure(value);
-        }
-
-        private void configure(String value){
-            this.value = value;
-        }
-
-        @Parameterized.Parameters
-        public static Collection<Object> getTestParameters(){
-            return Arrays.asList(new Object[][]{
-                    {"{\"value\":[]}"}, //value
-            });
-        }
-
-        @Test
-        public void test_notMatch(){
-            JSONReader reader = new JSONReader(new StringReader(this.value));
-            Model model = reader.readObject(Model.class);
-            Assert.assertNull(model.getValues());
-        }
-    }
-
-    @RunWith(value = Parameterized.class)
-    public static class TestError{
-
-        private String value;
-
-        public TestError(String value){
-            this.configure(value);
-        }
-
-        private void configure(String value){
-            this.value = value;
-        }
-
-        @Parameterized.Parameters
-        public static Collection<Object> getTestParameters(){
-            return Arrays.asList(new Object[][]{
-                    {"{\"values\":[1"},//value
-                    {"{\"values\":[\"b\"["},
-                    {"{\"values\":[n"},
-                    {"{\"values\":[nu"},
-                    {"{\"values\":[nul"},
-                    {"{\"values\":[null"},
-                    {"{\"values\":[null,]"}
-            });
-        }
-
-        @Test
-        public void test_error(){
+        public void test(){
             Exception error = null;
+            Model model;
             try {
-                JSONReader reader = new JSONReader(new StringReader(this.value));
-                reader.readObject(Model.class);
+                Object result = reader.readObject(this.typeReference);
+                if(type == ClassType.Model) {
+                    model = (Model)result;
+                }
+                else{
+                    Map<String, Model> map = (Map<String,Model>)result;
+                    model = map.get("model");
+                }
+                if(expected == null){
+                    Assert.assertNull(model.getValues());
+                }
+                else{
+                    Assert.assertEquals(expected.size(),model.getValues().size());
+                    for(int i = 0; i < expected.size(); i++){
+                        Assert.assertEquals(expected.get(i),model.getValues().get(i));
+                    }
+                }
             } catch (JSONException ex) {
                 error = ex;
             }
-            Assert.assertNotNull(error);
-        }
-    }
-
-    @RunWith(value = Parameterized.class)
-    public static class TestMapError{
-
-        private String value;
-
-        public TestMapError(String value){
-            this.configure(value);
+            if(isExceptionExpected)
+                Assert.assertNotNull(error);
+            else
+                Assert.assertNull(error);
         }
 
-        private void configure(String value){
-            this.value = value;
-        }
-
-        @Parameterized.Parameters
-        public static Collection<Object> getTestParameters(){
-            return Arrays.asList(new Object[][]{
-                    {"{\"model\":{\"values\":[]["},//value
-                    {"{\"model\":{\"values\":[]}["},
-                    {"{\"model\":{\"values\":[\"aaa]}["}
-            });
-        }
-
-        @Test
-        public void test_map_error() {
-            Exception error = null;
-            try {
-                JSONReader reader = new JSONReader(new StringReader(this.value));
-                reader.readObject(new TypeReference<Map<String, Model>>() {
-                });
-            } catch (JSONException ex) {
-                error = ex;
-            }
-            Assert.assertNotNull(error);
-        }
+    public enum ClassType{
+        Model,
+        Map
     }
 
     public static class Oracle{
 
-        private String jsonString;
-
         public Oracle(){}
 
-        public Oracle(String jsonString){
-            this.jsonString = jsonString;
+
+        public static List<Object> parsingValues(String jsonString){
+            return parsing(new JSONObject(jsonString));
         }
 
-        public List<Object> parsingValues(){
+        public static List<Object> parsingMapValues(String jsonString){
             JSONObject obj = new JSONObject(jsonString);
-            JSONArray array = obj.getJSONArray("values");
-            List<Object> values = new ArrayList<>();
-            for(Object value: array){
-                values.add(value);
+            return parsing(obj.getJSONObject("model"));
+
+        }
+
+        private static List<Object> parsing(JSONObject obj){
+            try{
+                JSONArray array = obj.getJSONArray("values");
+                List<Object> values = new ArrayList<>();
+                for(Object value: array){
+                    values.add(value);
+                }
+                return values;
+            }catch(Exception e){
+                return null;
             }
-            return values;
         }
     }
 
@@ -275,7 +143,7 @@ public class TestListStringField_Stream {
         }
 
     }
-
+    }
     /*
     package com.alibaba.json.bvt.parser.deser.list;
 
@@ -487,4 +355,3 @@ public class TestListStringField_Stream {
     }
 
      */
-}
